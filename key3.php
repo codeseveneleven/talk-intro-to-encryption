@@ -1,36 +1,49 @@
 <?php
 
+$algorithm =  "aes-256-cbc";
+
 $keyResource = openssl_pkey_new([
 	"digest_alg" => "sha256",
 	"private_key_bits" => 4096,
 	"private_key_type" => OPENSSL_KEYTYPE_RSA,
 ]);
-openssl_pkey_export($keyResource, $privatekey);
-$publickey = openssl_pkey_get_details($keyResource)["key"];
-openssl_free_key($keyResource);
+openssl_pkey_export($keyResource, $private_key);
+$public_key = openssl_pkey_get_details($keyResource)["key"];
 
-//$availablelist = openssl_get_cipher_methods(true);
-//print_r($availablelist);
-//echo $privatekey;
-//echo $publickey;
 
-$method = 'aes-256-ofb';
 
-$len = openssl_cipher_iv_length($method);
-//echo '---'.$len.'---',"\n";
-$iv  = openssl_random_pseudo_bytes(openssl_cipher_iv_length($method));
-$pub = openssl_pkey_get_public( $publickey);
-openssl_seal('another secret message',$sealed,$enckey,[$pub],$method,$iv);
-openssl_free_key($pub);
+$iv  = openssl_random_pseudo_bytes(
+	openssl_cipher_iv_length($algorithm),
+	$strong
+);
+$pub = openssl_pkey_get_public( $public_key);
+
+$message = 'Bonjour ConFoo!!';
+openssl_seal(
+	str_pad( $message, strlen($message) + 16 - strlen($message) % 16,  "\0"),
+	$sealed,
+	$encryption_keys,
+	[$pub],
+	$algorithm,
+	$iv
+);
 
 
 //$iv = bin2hex($iv);
 
-$envelope  = base64_encode(serialize([$method,$iv,$enckey,$sealed]));
-echo $envelope."\n\n";
-[$method,$iv,$enckey,$sealed] = unserialize(base64_decode( $envelope));
+$envelope  = base64_encode(serialize([
+	$algorithm,
+	$iv,
+	$encryption_keys,
+	$sealed
+]));
 
-$private = openssl_pkey_get_private( $privatekey);
-openssl_open($sealed,$opened,$enckey[0],$private,$method,$iv);
-openssl_free_key($private);
-echo $opened,"\n\n";
+echo "This is what we store or send: ".$envelope."\n\n";
+
+[$algorithm,$iv,$encryption_keys,$sealed] = unserialize(base64_decode( $envelope));
+
+
+$private = openssl_pkey_get_private( $private_key);
+openssl_open($sealed,$opened,$encryption_keys[0],$private,$algorithm,$iv);
+
+echo "The Message: ".$opened,"\n\n";
